@@ -1,6 +1,8 @@
-import type { MetaFunction } from "@remix-run/node";
+import { type MetaFunction } from "@remix-run/node";
 import { MyMessage } from "../components/myMessage";
 import { OpponentMessage } from "../components/oponentMessage";
+import { InputMessageArea } from "../components/inputMessageArea";
+import { useEffect, useState } from "react";
 
 type Sender = "me" | "opponent";
 type Message = {
@@ -16,48 +18,65 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-const messages = [
-  {
-    message: "Hello",
-    time: "12:00",
-    sender: "me",
-  },
-  {
-    message: "Hi",
-    time: "12:01",
-    sender: "opponent",
-  },
-  {
-    message: "How are you?",
-    time: "12:02",
-    sender: "me",
-  },
-  {
-    message: "I'm fine",
-    time: "12:03",
-    sender: "opponent",
-  },
-  {
-    message: "Good to hear",
-    time: "12:04",
-    sender: "me",
-  },
-  {
-    message: "Yeah",
-    time: "12:05",
-    sender: "opponent",
-  },
-] as const satisfies Message[];
-
 export default function Index() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+
+  const convertToMessage = (jsonStr: string) => {
+    const parsed = JSON.parse(jsonStr);
+    return {
+      message: parsed.text,
+      time: new Date().toLocaleTimeString(),
+      sender: Math.random() > 0.5 ? "me" : "opponent",
+    } as Message;
+  };
+
+  useEffect(() => {
+    // WebSocketの接続を確立
+    const ws = new WebSocket("ws://localhost:8000/ws");
+
+    ws.onopen = () => {
+      console.log("Connected to WebSocket server");
+    };
+
+    ws.onmessage = (event) => {
+      console.log("Message received from server:", event.data);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        convertToMessage(event.data),
+      ]);
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    // WebSocketのインスタンスを保存
+    setSocket(ws);
+
+    // コンポーネントがアンマウントされるときにWebSocketを閉じる
+    return () => {
+      ws.close();
+    };
+  }, []);
+
+  console.log(messages);
+
   return (
-    <div className="flex flex-col gap-5">
-      {messages.map((message, index) => {
-        if (message.sender === "me") {
-          return <MyMessage key={index} {...message} />;
-        }
-        return <OpponentMessage key={index} {...message} />;
-      })}
-    </div>
+    <>
+      <div className="flex flex-col gap-5">
+        {messages.map((message, index) => {
+          if (message.sender === "me") {
+            return <MyMessage key={index} {...message} />;
+          }
+          return <OpponentMessage key={index} {...message} />;
+        })}
+      </div>
+      <InputMessageArea socket={socket} />
+    </>
   );
 }
