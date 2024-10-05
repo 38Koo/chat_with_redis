@@ -10,7 +10,7 @@ export const OpponentMessage = (props: MessageProps) => {
   return (
     <div className="flex gap-5 justify-end">
       <Icon />
-      <MessageArea {...props} />
+      <MessageArea {...props} color="bg-slate-200" />
     </div>
   );
 };
